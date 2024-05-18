@@ -5,7 +5,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 from typing import Tuple, Dict, List
 from tabulate import tabulate
-from scipy.stats import mode
+from scipy import stats
+from scipy.stats import mode, pearsonr
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
 
 #Practica 1
 def print_tabulate(df: pd.DataFrame):
@@ -20,9 +23,9 @@ def analisis_temperaturas(df: pd.DataFrame)-> pd.DataFrame:
     df["anio"] = df["Date"].dt.year
     df_by_dep = df.groupby(["Country", "anio"]).agg({'Temperature': ['sum', 'count', 'mean', 'min', 'max']})
     df_by_dep = df_by_dep.reset_index()
-    df_by_dep.columns = ['Country', 'anio', 'Suma_Total_sueldos', 'Conteo_Empleados', 'Promedio_sueldo', 'Salario_Minimo', 'Salario_Maximo']
+    df_by_dep.columns = ['Country', 'anio', 'Suma_Total_temperatura', 'Conteo_temperatura', 'Promedio_temperaturas', 'Temperatura_Minima', 'Temperatura_Maxima']
     print_tabulate(df_by_dep.head())
-    #df_by_dep = df_complete.groupby(["dependencia", "Fecha"]).agg({'Sueldo Neto': ['sum', 'count', 'mean', 'min', 'max']})
+    
     return df_by_dep
 
 analyzed_df = analisis_temperaturas(df)
@@ -53,8 +56,7 @@ def generate_df(means: List[Tuple[float, float, str]], n: int) -> pd.DataFrame:
 
 
 def get_cmap(n, name="hsv"):
-    """Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
-    RGB color; the keyword argument name must be a standard mpl colormap name."""
+   
     return matplotlib.colormaps.get_cmap(name, n)
 
 def scatter_group_by(
@@ -108,5 +110,41 @@ kn = k_nearest_neightbors(
     5,
 )
 print(f"{new_points}, {kn}")
+
+
+#Practica 4: Prueba ANOVA
+def anova(df_aux: pd.DataFrame, str_ols: str):
+    
+    modl = ols(str_ols, data=df_aux).fit()
+    anova_df = sm.stats.anova_lm(modl, typ=2)
+    if anova_df["PR(>F)"][0] < 0.005:
+        print("hay diferencias")
+        print(anova_df)
+        
+    else:
+        print("No hay diferencias")
+
+def anova_1(file_name: str):
+    df_complete = pd.read_csv(file_name)
+    df_by_type = df_complete.groupby(["Country", "anio"])[["Temperature"]].aggregate(pd.DataFrame.sum)
+    df_by_type.reset_index(inplace=True)
+    df_aux = df_by_type.rename(columns={"Temperature": "TotalTemperature"}).drop(['anio'], axis=1)
+    df_aux = df_aux.loc[df_aux["Country"].isin(["Afghanistan","Chile"])]
+ 
+    print(df_aux.head())
+    anova(df_aux, "TotalTemperature ~ Country")
+
+
+#Practica 5: Pruebas de correlación
+#se busca correlación entre la temperarura y las emisiones de CO2
+r, p = stats.pearsonr(df['Temperature'], df['C02 Emissions'])
+print(f"Correlación Pearson: r={r}, p-value={p}")
+
+r, p = stats.spearmanr(df['Temperature'], df['C02 Emissions'])
+print(f"Correlación Spearman: r={r}, p-value={p}")
+
+r, p = stats.kendalltau(df['Temperature'], df['C02 Emissions'])
+print(f"Correlación Pearson: r={r}, p-value={p}")
+
 
 
